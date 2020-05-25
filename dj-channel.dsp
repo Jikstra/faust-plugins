@@ -26,9 +26,25 @@ mid_gain = hslider("[6]mid_gain", 1, 0, 2, 0.001) : si.smoo;
 mid_kill = checkbox("[7]mid_kill") : invertBool :  si.smoo;
 high_gain = hslider("[8]high_gain", 1, 0, 2, 0.001) : si.smoo;
 high_kill = checkbox("[9]high_kill") : invertBool : si.smoo;
+volume = vslider("volume", 1, 0, 1, 0.001) : si.smoo;
 
 gainMono(gain) = _ * gain;
 gain(gain) = _,_ : gainMono(gain), gainMono(gain): _,_;
 
+equalizer = _,_ :
+  split((low_cut,mid_cut:min), 2) :
+	  _,
+		_,
+		split((low_cut,mid_cut: max), 5) :
+    	gain(low_gain*low_kill),
+	    gain(mid_gain*mid_kill),
+	    gain(high_gain*high_kill) :>
+	      _,_;
 
-process = _,_ : split((low_cut,mid_cut:min), 2) : _,_, split((low_cut,mid_cut: max), 5) : gain(low_gain*low_kill),gain(mid_gain*mid_kill),gain(high_gain*high_kill) :> _,_;
+vol = _,_ :
+	_ * volume,
+  _ * volume :
+	  _,_;
+
+
+process = _,_ : vol : equalizer;
