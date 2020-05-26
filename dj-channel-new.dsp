@@ -18,6 +18,8 @@ general_gain = hslider("gain", 1, 0, 10, 0.001) : si.smoo;
 volume = vslider("volume", 1, 0, 1, 0.001) : si.smoo;
 cue_a = checkbox("cue_a") : si.smoo;
 cue_b = checkbox("cue_b") : si.smoo;
+filter = hslider("filter", 1, 0, 2, 0.001) : si.smoo;
+
 
 
 
@@ -44,17 +46,27 @@ split(freq,q) = _,_ :
  * frequencies (everything below low_cut), the 3 & 4 are everything below mid_cut
  * and 5 & 6 are the remaining high frequencies.
  */
+
+
+_f(value) = _,_ : split((value*4646), 5):
+	  _ * (value < 1),
+		_ * (value < 1),
+		_ * (value > 1),
+		_ * (value > 1) :>
+		  _,_;
+
+f(value) = _,_ : ba.bypass2(value==1, _f(value));
+	
 ThreeBandSplitter = _,_ :
-  split((low_cut,mid_cut:min), 2) :
-	  _,
-	  _,
-	  split((low_cut,mid_cut: max), 5) :
-      _,
-      _,
-      _,
-      _,
-      _,
-      _;
+  fi.filterbank (5,(low_cut,mid_cut)),
+  fi.filterbank (5,(low_cut,mid_cut)) <:
+    ba.selector(2, 6),
+    ba.selector(5, 6),
+    ba.selector(1, 6),
+    ba.selector(4, 6),
+    ba.selector(0, 6),
+		ba.selector(3, 6) :
+		  _,_,_,_,_,_;
 
 equalizer = _,_ :
   ThreeBandSplitter :
@@ -82,10 +94,12 @@ cue(activated) = gain(activated);
 
 process = _,_ :
   gain(general_gain) :
-	  equalizer <:
+	equalizer <:
 		  gain(volume),
 			cue(cue_a),
 			cue(cue_b);
+
+
 
 
 
