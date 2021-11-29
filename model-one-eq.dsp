@@ -20,8 +20,20 @@ lp_bypass_toggle = checkbox("[6]lp bypass[3]");
 lp_bypass = (lp_bypass_toggle == 1) | (lp_fq_midi == 127);
 lp_bypass_ui = lp_bypass : hbargraph("[7]LP Bypass", 0, 1);
 
+bell_fq_midi =  hslider("[8]bell freq midi[midi:ctrl 3]", 64, 0, 127, 1):float;
+bell_fq = 440.0*pow(2.0, (bell_fq_midi-69.0)/12.0);
+bell_fq_ui = bell_fq : hbargraph("[9]Bell Freq", 0, 21000);
+
+bell_gain_midi =  hslider("[10]bell gain midi[midi:ctrl 2]", 64, 0, 127, 1):float;
+bell_gain = select2(bell_gain_midi > 64, ((bell_gain_midi - 64)), ((bell_gain_midi - 64) / 5));
+bell_gain_ui = bell_gain : hbargraph("[11]Bell Gain", -100, 100);
+
+bell_q = select2(bell_gain_midi > 64, 4, 1);
+bell_q_ui = bell_q : hbargraph("[12]Bell Q", 0, 32);
+
+
 mute = (hp_fq_midi == 127) | (lp_fq_midi == 0);
-mute_ui = mute : hbargraph("[8]Mute", 0, 1);
+mute_ui = mute : hbargraph("[13]Mute", 0, 1);
 
 smooth_bypass(bpc, e) = _,_ : ba.bypass_fade(500, bpc, e) : _,_;
 
@@ -31,7 +43,21 @@ hp = _ , _ : smooth_bypass(hp_bypass, (hp_mono, hp_mono)) : _, _;
 lp_mono = _ : fi.lowpass3e(lp_fq) : _;
 lp = _ , _ : smooth_bypass(lp_bypass, (lp_mono, lp_mono)) : _, _;
 
+bell_mono =  _ <:
+                    (_ : fi.svf.bell(bell_fq, 1, bell_gain / 2) : fi.svf.bell(bell_fq, 1, bell_gain / 2) : _),
+                    (_ : fi.svf.bell(bell_fq, 1, bell_gain) : _)
+                        : select2(bell_gain_midi < 64)
+                            : _;
+bell = _,_ : bell_mono,bell_mono: _,_;
+
 muter = _,_ : ba.bypass_fade(300, (mute == 0), (_ * 0, _ * 0)) : _,_;
 
 
-process = _,_ : hp : lp : muter : _, attach(_, hp_fq_ui) : _, attach(_, hp_bypass_ui) : _, attach(_, lp_bypass_ui) :  _, attach(_, mute_ui);
+process = _,_ : hp : lp : bell : muter : _, _ :
+    _, attach(_, hp_fq_ui) :
+    _, attach(_, hp_bypass_ui) :
+    _, attach(_, lp_bypass_ui) :
+    _, attach(_, bell_fq_ui) :
+    _, attach(_, bell_q_ui) :
+    _, attach(_, bell_gain_ui) :
+    _, attach(_, mute_ui);
