@@ -2,40 +2,36 @@ declare options "[midi:on]";
 
 import("stdfaust.lib");
 
-invertBool = _ : _;
 
-lsf_toggle = checkbox("[3]lsf disable") : invertBool;
-lsf_fc     = hslider(" [1]lsf fc[midi:ctrl 1]", 21000, 30, 21000, 1) : si.smoo;
-lsf_n      = 3;
-//lsf_gain   = hslider(" [2]lsf gain", -75, -200, 6, 0.001) : si.smoo;
-lsf_gain = ma.INFINITY * -1; 
+hp_fq_midi = hslider("[1]hp freq midi[midi:ctrl 1]", 0, 0, 127, 1):float;
+hp_fq = ba.midikey2hz(hp_fq_midi) : si.smoo;
+hp_fq_ui = hp_fq : hbargraph("[2]HP Freq", 0, 21000);
 
 
-sculpt_eq_toggle = checkbox("[20]sculpt disable") : invertBool;
-sculpt_eq_fc     = hslider(" [21]sculpt fc[midi:ctrl 2]", 1300, 30, 20000, 1) : si.smoo;
-sculpt_eq_width  = hslider(" [22]sculpt width", 100, 1, 3000, 1) : si.smoo;
-sculpt_eq_n      = 5;
-sculpt_eq_gain   = hslider(" [23]sculpt gain[midi:ctrl 3]", 0, -70, 30, 0.001) : si.smoo;
+hp_bypass_toggle = checkbox("[4]hp bypass[3]");
+hp_bypass = (hp_bypass_toggle == 1) | (hp_fq_midi == 0);
+hp_bypass_ui = hp_bypass : hbargraph("[3]HP Bypass", 0, 1);
 
-hsf_toggle = checkbox("[20]hsf disable") : invertBool;
-hsf_fc     = hslider(" [21]hsf fc[midi:ctrl 4]", 30, 30, 20000, 1) : si.smoo;
-hsf_n      = 5;
-//hsf_gain   = hslider(" [23]hsf gain", -75, -200, 6, 0.001) : si.smoo;
-hsf_gain = ma.INFINITY * -1;
+lp_fq_midi = hslider("[4]lp freq midi[midi:ctrl 4]", 127, 0, 127, 1):float;
+lp_fq = ba.midikey2hz(lp_fq_midi) : si.smoo;
+lp_fq_ui = lp_fq : hbargraph("[5]LP Freq", 0, 21000);
+
+lp_bypass_toggle = checkbox("[6]lp bypass[3]");
+lp_bypass = (lp_bypass_toggle == 1) | (lp_fq_midi == 127);
+lp_bypass_ui = lp_bypass : hbargraph("[7]LP Bypass", 0, 1);
+
+mute = (hp_fq_midi == 127) | (lp_fq_midi == 0);
+mute_ui = mute : hbargraph("[8]Mute", 0, 1);
+
+smooth_bypass(bpc, e) = _,_ : ba.bypass_fade(500, bpc, e) : _,_;
+
+hp_mono = _ : fi.highpass3e(hp_fq) : _;
+hp = _ , _ : smooth_bypass(hp_bypass, (hp_mono, hp_mono)) : _, _;
+
+lp_mono = _ : fi.lowpass3e(lp_fq) : _;
+lp = _ , _ : smooth_bypass(lp_bypass, (lp_mono, lp_mono)) : _, _;
+
+muter = _,_ : ba.bypass_fade(300, (mute == 0), (_ * 0, _ * 0)) : _,_;
 
 
-_lsf_mono = _ : fi.lowshelf(lsf_n, lsf_gain, lsf_fc) : fi.lowshelf(lsf_n, lsf_gain, lsf_fc)  : fi.lowshelf(lsf_n, lsf_gain, lsf_fc) : fi.lowshelf(lsf_n, lsf_gain, lsf_fc) : _;
-_lsf_stereo = _,_ : _lsf_mono,_lsf_mono : _,_;
-lsf = _,_ : ba.bypass2(lsf_toggle, _lsf_stereo) : _,_;
-
-
-_hsf_mono = _ : fi.highshelf(hsf_n, hsf_gain, hsf_fc) : fi.highshelf(hsf_n, hsf_gain, hsf_fc) : fi.highshelf(hsf_n, hsf_gain, hsf_fc) : fi.highshelf(hsf_n, hsf_gain, hsf_fc) : _;
-_hsf_stereo = _,_ : _hsf_mono, _hsf_mono : _,_;
-hsf = _,_ : ba.bypass2(hsf_toggle, _hsf_stereo) : _,_;
-         
-_sculpt_eq2 = _ : fi.peak_eq(sculpt_eq_gain, sculpt_eq_fc, sculpt_eq_width) : fi.peak_eq(sculpt_eq_gain, sculpt_eq_fc, sculpt_eq_width) : _;
-_sculpt_eq_mono = _ : _sculpt_eq2 : _sculpt_eq2 : _sculpt_eq2  : _;
-_sculpt_eq_stereo = _,_ : _sculpt_eq_mono, _sculpt_eq_mono : _,_;
-sculpt_eq = _,_ : ba.bypass2(sculpt_eq_toggle, _sculpt_eq_stereo) : _,_;
-
-process = _,_ : sculpt_eq : lsf : hsf : _,_ : _,_;
+process = _,_ : hp : lp : muter : _, attach(_, hp_fq_ui) : _, attach(_, hp_bypass_ui) : _, attach(_, lp_bypass_ui) :  _, attach(_, mute_ui);
