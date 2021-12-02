@@ -2,10 +2,14 @@ declare options "[midi:on]";
 
 import("stdfaust.lib");
 
-mymidikey2hz(m) = 20 * pow(2.0, (0.079 * m)) : int;
+midikey2hz(m) = lowestValue * pow(2.0, k * m)
+with {
+    lowestValue = 2000;
+    k = log((ma.SR/2)/lowestValue) / log(2) / 127;
+};
 
 hp_fq_midi = hslider("[1]hp freq midi[midi:ctrl 1]", 0, 0, 127, 1):float;
-hp_fq = mymidikey2hz(hp_fq_midi) : si.smoo;
+hp_fq = midikey2hz(hp_fq_midi) : si.smoo;
 hp_fq_ui = hp_fq : hbargraph("[2]HP Freq", 0, 21000);
 
 
@@ -14,7 +18,7 @@ hp_bypass = (hp_bypass_toggle == 1) | (hp_fq_midi == 0);
 hp_bypass_ui = hp_bypass : hbargraph("[3]HP Bypass", 0, 1);
 
 lp_fq_midi = hslider("[4]lp freq midi[midi:ctrl 4]", 127, 0, 127, 1):float;
-lp_fq = mymidikey2hz(lp_fq_midi) : si.smoo;
+lp_fq = midikey2hz(lp_fq_midi) : si.smoo;
 lp_fq_ui = lp_fq : hbargraph("[5]LP Freq", 0, 21000);
 
 lp_bypass_toggle = checkbox("[6]lp bypass[3]");
@@ -22,7 +26,7 @@ lp_bypass = (lp_bypass_toggle == 1) | (lp_fq_midi == 127);
 lp_bypass_ui = lp_bypass : hbargraph("[7]LP Bypass", 0, 1);
 
 bell_fq_midi =  hslider("[8]bell freq midi[midi:ctrl 3]", 64, 0, 127, 1):float;
-bell_fq = mymidikey2hz(bell_fq_midi) : si.smoo;
+bell_fq = midikey2hz(bell_fq_midi) : si.smoo;
 bell_fq_ui = bell_fq : hbargraph("[9]Bell Freq", 0, 21000);
 
 bell_gain_midi =  hslider("[10]bell gain midi[midi:ctrl 2]", 64, 0, 127, 1):float;
@@ -38,10 +42,20 @@ mute_ui = mute : hbargraph("[13]Mute", 0, 1);
 
 smooth_bypass(bpc, e) = _,_ : ba.bypass_fade(500, bpc, e) : _,_;
 
-hp_mono = _ : fi.highpass3e(hp_fq) : _;
+oberheim_hp(freq, q) = _ : seq(i, N, ve.oberheimHPF(normalized_freq, q)) : _
+with {
+		N = 8;
+    normalized_freq = min((freq)/(ma.SR/2), 1);
+};
+hp_mono = _ : oberheim_hp(hp_fq, 0.75) : _;
 hp = _ , _ : smooth_bypass(hp_bypass, (hp_mono, hp_mono)) : _, _;
 
-lp_mono = _ : fi.lowpass3e(lp_fq) : _;
+oberheim_lp(freq, q) = _ : seq(i, N, ve.oberheimLPF(normalized_freq, q)) : _
+with {
+		N = 8;
+    normalized_freq = min((freq)/(ma.SR/2), 1);
+};
+lp_mono = _ : oberheim_lp(lp_fq, 0.75) : _;
 lp = _ , _ : smooth_bypass(lp_bypass, (lp_mono, lp_mono)) : _, _;
 
 bell_mono =  _ <:
