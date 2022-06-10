@@ -12,19 +12,18 @@ with {
 
 midikey2hzHP(m) = lowestValue * pow(l, k * (m - 1))
 with {
-    //lowestValue = 2000;
     l = 2;
-    lowestValue = 16000;
+    lowestValue = 20;
     offset = 0;
-    highestValue = 22000;
+    highestValue = ma.SR/2;
     k = log(((highestValue)+offset)/lowestValue) / log(l) / 125;
 };
 
 midikey2hzLP(m) = lowestValue * pow(2.0, k * m)
 with {
-    //lowestValue = 2000;
-    lowestValue = 4000;
-    offset = 8000;
+    lowestValue = 500;
+    //lowestValue = 4000;
+    offset = 0;
     k = log(((ma.SR/2)+offset)/lowestValue) / log(2) / 126;
 };
 
