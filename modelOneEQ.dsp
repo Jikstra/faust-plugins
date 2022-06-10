@@ -27,8 +27,18 @@ with {
     k = log(((ma.SR/2)+offset)/lowestValue) / log(2) / 126;
 };
 
+midikey2hzBell(m) = lowestValue * pow(2.0, k * m)
+with {
+    lowestValue = 20;
+    //lowestValue = 4000;
+    offset = -2000;
+    k = log(((ma.SR/2)+offset)/lowestValue) / log(2) / 126;
+};
+
+betterSmoo = si.smooth(0.001);
+
 hp_fq_midi = hslider("[1]hp freq midi[midi:ctrl 1]", 0, 0, 127, 1):float;
-hp_fq = midikey2hzHP(hp_fq_midi) : si.smoo;
+hp_fq = midikey2hzHP(hp_fq_midi) : betterSmoo;
 hp_fq_ui = hp_fq : hbargraph("[2]HP Freq", 0, 21000);
 
 
@@ -37,7 +47,7 @@ hp_bypass = (hp_bypass_toggle == 1) | (hp_fq_midi == 0);
 hp_bypass_ui = hp_bypass : hbargraph("[3]HP Bypass", 0, 1);
 
 lp_fq_midi = hslider("[4]lp freq midi[midi:ctrl 4]", 127, 0, 127, 1):float;
-lp_fq = midikey2hzLP(lp_fq_midi);
+lp_fq = midikey2hzLP(lp_fq_midi) : betterSmoo;
 lp_fq_ui = lp_fq : hbargraph("[5]LP Freq", 0, 21000);
 
 lp_bypass_toggle = checkbox("[6]lp bypass[3]");
@@ -45,8 +55,8 @@ lp_bypass = (lp_bypass_toggle == 1) | (lp_fq_midi == 127);
 lp_bypass_ui = lp_bypass : hbargraph("[7]LP Bypass", 0, 1);
 
 bell_fq_midi =  hslider("[8]bell freq midi[midi:ctrl 3]", 64, 0, 127, 1):float;
-bell_fq = midikey2hzHP(bell_fq_midi) : si.smoo;
-bell_fq_ui = bell_fq : hbargraph("[9]Bell Freq", 0, 21000);
+bell_fq = midikey2hzBell(bell_fq_midi) : betterSmoo;
+bell_fq_ui = bell_fq : hbargraph("[9]Bell Freq", 0, 25000);
 
 bell_gain_midi =  hslider("[10]bell gain midi[midi:ctrl 2]", 64, 0, 127, 1):float;
 bell_gain = select2(bell_gain_midi > 64, ((bell_gain_midi - 64)), ((bell_gain_midi - 64) / 5));
